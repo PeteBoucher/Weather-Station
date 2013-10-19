@@ -23,7 +23,7 @@ def read_temp_raw2():
         e.close()
         return lines2
 
-def read_temp():
+def read_temp(): #external
 
         lines2 = read_temp_raw2()
         while lines2[0].strip()[-3:] != 'YES':
@@ -45,7 +45,7 @@ def read_temp_raw1():
         e.close()
         return lines1
 
-def read_temp2():
+def read_temp2(): #internal
 
         lines1 = read_temp_raw1()
         while lines1[0].strip()[-3:] != 'YES':
