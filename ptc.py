@@ -29,9 +29,9 @@ def read_temp_raw_1():
         e = open(device_file_1, 'r')
         raw_1 = e.readlines()
         e.close()
-        except ValueError:
+    except ValueError:
         	print("no sensor found")
-        return raw_1
+    return raw_1
 		#returns an array of sensor data (BS18B20)
 		#with the temp from sensor in index(1).
 		
