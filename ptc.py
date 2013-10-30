@@ -4,65 +4,65 @@ import time
 import MySQLdb
 import RPi.GPIO as GPIO
 
+#temp from 2x BS18B20 sensors
+
+#initialize device
 os.system('modprobe w1-gpio')
 os.system('modprobe w1-therm')
-#setup GPIO's for FAN(cooling 12) and HEATER (18)
+#now the "one-wire" device is visible at /sys/bus/w1/devices (base_folder)
+#"one-wire" device pin is GPIO4 (physical pin number 7)
+#setup GPIO's for FAN cooling 12 (ph) and HEATER 18 (ph) 22 linear actuator
 GPIO.setup(12, GPIO.OUT)
 GPIO.setup(18, GPIO.OUT)
+GPIO.setup(22, GPIO.OUT)
 
-#setup for tempsensors
-base_dir = '/sys/bus/w1/devices/'
-device_folder1 = glob.glob(base_dir + '28-00000384c25d')[0]
-device_file1 = device_folder1 + '/w1_slave'
-device_folder2 = glob.glob(base_dir + '28-00000384c1bb')[0]
-device_file2 = device_folder2 + '/w1_slave'
+#setup for temp sensors
+#w1 is a virtual folder
 
-def read_temp_raw2():
-        e = open(device_file2, 'r')
-        lines2 = e.readlines()
+device_base_folder = '/sys/bus/w1/devices/'
+device_folder_1 = glob.glob(device_base_folder + '28-00000384c1bb')[0]
+device_file_1 = device_folder_1 + '/w1_slave'
+    
+#get raw temp from sensor        
+def read_temp_raw_1():
+	try:
+        e = open(device_file_1, 'r')
+        raw_1 = e.readlines()
         e.close()
-        return lines2
+        except ValueError:
+        	print("no sensor found")
+        return raw_1
+		#returns an array of sensor data (BS18B20)
+		#with the temp from sensor in index(1).
+		
+def read_temp_1():
 
-def read_temp():
+        raw_1 = read_temp_raw_1()
+        
+        #raw array format: ['73 00 4b 46 7f ff 0d 10 7c : crc=7c YES\n', '73 00 4b 46 7f ff 0d 10 7c t=14800\n']
+        #actual value= 14800 => 14.800 C
+        
+        #searching for pattern 't=' in tabel position 2 (index 1)
+        # normal setup: "t=14800" this wil reflect the temperatur 14.8 C
+        
+        position = raw_1[1].find('t=')
+        if position != -1: #not found
+                temp_string1 = raw_1[1][position+2:] #format => 14800
+                temp_c_out = float(temp_string1) / 1000.0 #format => 14800
+  		else:
+  				temp_c_out = -1
+  				error1()
+  					
+        return temp_c_out
 
-        lines2 = read_temp_raw2()
-        while lines2[0].strip()[-3:] != 'YES':
-                time.sleep(0.2)
-                lines2 = read_temp_raw2()
-
-        equals_pos2 = lines2[1].find('t=')
-        if equals_pos2 != -1:
-                temp_string2 = lines2[1][equals_pos2+2:]
-
-
-                temp_c_out = float(temp_string2) / 1000.0
-
-                return temp_c_out
-
-def read_temp_raw1():
-        e = open(device_file1, 'r')
-    	lines1 = e.readlines()
-        e.close()
-        return lines1
-
-def read_temp2():
-
-        lines1 = read_temp_raw1()
-        while lines1[0].strip()[-3:] != 'YES':
-                time.sleep(0.2)
-                lines1 = read_temp_raw1()
-
-        equals_pos1 = lines1[1].find('t=')
-        if equals_pos1 != -1:
-                temp_string1 = lines1[1][equals_pos1+2:]
-
-
-                temp_c_out = float(temp_string1) / 1000.0
-
-                return temp_c_out
-#set values high = off
-GPIO.output(18,1)
-GPIO.output(12,1)
+#errors
+def error1():
+	raise RuntimeError('no sensor data!')
+                
+#init setup, set values high/1 = off
+GPIO.output(18,1) # heater unit (max 16A)
+GPIO.output(12,1) # cooling fan (max 1A)
+GPIO.output(22,1) # linear actuator for door (max 2A, H-bridge controlled)
 
 #db connection setup
 db = MySQLdb.connect("host","user","pass","db")
@@ -71,31 +71,33 @@ r = db.cursor()
 #loop to check temp and take action as necessary, RPi safe temp = 0-70 C
 
 while True:
-        if read_temp2() >1:
-                if read_temp2() < 25:
-                        print("temp is good!")
-                        print(read_temp2())
-                        print("Temp is good: 1-25C")
-                        time.sleep(300)
-        if read_temp2() >25:
-                GPIO.output(12,0)
-                print(read_temp2())
-                print("High temp, turning ON fan")
-                r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Fan ON',read_temp2()))
-                db.commit()
-                time.sleep(300)
-                print("5min fan time past, turning OFF fan")
-                GPIO.output(12,1)
+        if read_temp_1() >1:
+                if read_temp_1() < 25:
+                		#normal temp, no action
+                        time.sleep(300) #wait 5 min for new check
+                        else:
+        						if read_temp_1() >25:
+        							#High temp take action; fan on 5min, open door
+        							GPIO.output(22,0)
+                					GPIO.output(12,0)
+                					#write action to database
+                					r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Fan ON',read_temp_1()))
+                					db.commit()
+                					time.sleep(300)
+                					# 5min fan time past, fan off
+                					GPIO.output(12,1)
+                					GPIO.output(22,1)
 
-        if read_temp2() < 1:
-                print(read_temp2())
-                print("low temp < 1 heater on for 5min")
-                GPIO.output(18,0)
-                r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Heater ON',read_temp2()))
-                db.commit()
-                time.sleep(300)
-                print("50/50 duty cycle 5 min heater off (safty for cabels)")
-                GPIO.output(18,1)
-                time.sleep(300)
+        						if read_temp_1() < 1:
+                					# low temp take action; heater on 5min
+                					GPIO.output(18,0)
+                					#write action to database
+                					r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Heater ON',read_temp_1()))
+                					db.commit()
+                					time.sleep(300)
+                					#5min heat time past, heater off
+                					GPIO.output(18,1)
+                					#50/50 duty cycle 5 min heater off (safty for cabels)
+                					time.sleep(300)
 
-        print("New check (every 5 min)")
+    #New check (every 5 min)
