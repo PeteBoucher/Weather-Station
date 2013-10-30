@@ -80,7 +80,7 @@ r = db.cursor()
 #loop to check temp and take action as necessary, RPi safe temp = 0-70 C
 
 while True:
-        if 25 < read_temp_1() >1 and read_temp_1() <25:
+        if read_temp_1() >1 and read_temp_1() <25:
                 		#normal temp, no action
                         time.sleep(300) #wait 5 min for new check
                         else:
