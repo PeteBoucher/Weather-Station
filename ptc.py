@@ -11,7 +11,7 @@ os.system('modprobe w1-gpio')
 os.system('modprobe w1-therm')
 #now the "one-wire" device is visible at /sys/bus/w1/devices (base_folder)
 #"one-wire" device pin is GPIO4 (physical pin number 7)
-#setup GPIO's for FAN cooling 12 (ph) and HEATER 18 (ph) 22 linear actuator
+#setup GPIO's for FAN cooling 12 (ph) and HEATER 18 (ph) and linear actuator 22 (ph)
 GPIO.setup(12, GPIO.OUT)
 GPIO.setup(18, GPIO.OUT)
 GPIO.setup(22, GPIO.OUT)
