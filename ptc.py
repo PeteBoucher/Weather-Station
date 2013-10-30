@@ -4,21 +4,25 @@ import time
 import MySQLdb
 import RPi.GPIO as GPIO
 
-#temp from 2x BS18B20 sensors
+#temp from BS18B20 sensor
 
 #initialize device
 os.system('modprobe w1-gpio')
 os.system('modprobe w1-therm')
+
 #now the "one-wire" device is visible at /sys/bus/w1/devices (base_folder)
 #"one-wire" device pin is GPIO4 (physical pin number 7)
-#setup GPIO's for FAN cooling 12 (ph) and HEATER 18 (ph) and linear actuator 22 (ph)
+
+#setup GPIO's for: 
+#Fan unit 12 (ph) 
+#Heater 18 (ph) 
+#Linear actuator 22 (ph)
+
 GPIO.setup(12, GPIO.OUT)
 GPIO.setup(18, GPIO.OUT)
 GPIO.setup(22, GPIO.OUT)
 
-#setup for temp sensors
 #w1 is a virtual folder
-
 device_base_folder = '/sys/bus/w1/devices/'
 device_folder_1 = glob.glob(device_base_folder + '28-00000384c1bb')[0]
 device_file_1 = device_folder_1 + '/w1_slave'
@@ -68,6 +72,11 @@ GPIO.output(22,1) # linear actuator for door (max 2A, H-bridge controlled)
 db = MySQLdb.connect("host","user","pass","db")
 r = db.cursor()
 
+#if the environment around an RPI is 25 degrees, 
+#the RPi in box/case reaches about 60 degrees Celsius. 
+#several components of the RPI is certified for 0-70 degrees, 
+#such as BCM2835 the 700MHz SoC and the LAN Chip
+#Safe temperature for Raspberry are 0-70 degrees Celsius.
 #loop to check temp and take action as necessary, RPi safe temp = 0-70 C
 
 while True:
