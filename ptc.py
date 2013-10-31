@@ -6,6 +6,10 @@ import RPi.GPIO as GPIO
 import datetime
 import re
 
+#By Lars-Martin Hejll
+#http://softwarefun.org
+
+
 #temp from BS18B20 sensor
 
 #initialize device
