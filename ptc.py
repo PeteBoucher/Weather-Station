@@ -44,8 +44,7 @@ def read_temp():
         #raw array format: ['73 00 4b 46 7f ff 0d 10 7c : crc=7c YES\n', '73 00 4b 46 7f ff 0d 10 7c t=14800\n']
         #actual value= 14800 => 14.800 C
         #searching for pattern 't=' in array
-        #what is re ?
-        temp_string_unscaled = re.search("t=(\d+)", read_temp_raw()).group(1);
+        temp_string_unscaled = re.search('t=(\d+)',str(read_temp_raw())).group(1);
 		return float(temp_string_unscaled) / 1000;
 		
 
@@ -79,51 +78,55 @@ fan_cool_time = datetime.timedelta(minutes = 1)
 
 #Change fan state
 def set_fan_state(new_state):
-	if (new_state != fan_state):
-		fan_state = new_state
-	if(fan_state and datetime.datetime.now() > fan_last_run_timestamp + fan_run_time + fan_cool_time):
-			fan_last_run_timestamp = datetime.datetime.now()
+	if new_state != fan_state:
+		if new_state and datetime.datetime.now() > last_fan_starttime + fan_run_time + fan_cool_time:
+			last_fan_starttime = datetime.datetime.now()
 			#High temp take action; fan on, open door
 			#Check voltage / capacity (waiting for component)
         	turn_fan_on()
-    	elif fan_state is False and current_time > fan_last_run_timestamp+fan_run_time:
+    	elif new_state is False and current_time > last_fan_starttime+fan_run_time:
     		#Turn off fan, close door
     		turn_fan_off()
 
 #Change heater state		
 def set_heater_state(new_state):
 	if new_state != heater_state:
-		heater_state = new_state
-	if heater_state and datetime.datetime.now() > heater_last_run_timestamp + heater_run_time + heater_cool_time:
-		heater_last_run_timestamp = datetime.datetime.now()
-		#Low temp take action; heater on
-		#Check voltage / capacity (waiting for component)
-		turn_heater_on()    		
-    elif heater_state is False and current_time > heater_last_run_timestamp+heater_run_time:
-		# heating is finished turn off
-		turn_heater_off();
+		if new_state and datetime.datetime.now() > last_heater_starttime + heater_run_time + heater_cool_time:
+			last_heater_starttime = datetime.datetime.now()
+			#Low temp take action; heater on
+			#Check voltage / capacity (waiting for component)
+			turn_heater_on()    		
+    	elif new_state is False and current_time > last_heater_starttime+heater_run_time:
+			# heating is finished turn off
+			turn_heater_off();
 
 #action methods	
 def turn_heater_on():
 	GPIO.output(fan_pin,0)
+	heater_state = True
     r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Heater On',read_temp()))
     db.commit()
 
 def turn_heater_off():
 	GPIO.output(fan_pin,1)
+	heater_state = False
     r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Heater Off',read_temp()))
     db.commit()
   
 def turn_fan_on():
 	GPIO.output(door_pin,0) 
     GPIO.output(fan_pit,0) 
+    fan_state = True
 	r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Fan On',read_temp()))
+	db.commit
 
 def turn_fan_off():
 	GPIO.output(fan_pin,1) 
     GPIO.output(door_pin,1) 
+    fan_state = False
     r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Fan Off',read_temp()))
-    db.commit() 	
+    db.commit()
+    	
 				
 				
 def temperature_control_exec():
@@ -131,14 +134,14 @@ def temperature_control_exec():
 	temperature = read_temp();
 	
 	if temperature > low_temp and temperature < high_temp:
-		print('temp ok!')
-		heater_state(False);
+		print('temp ok!') #kun for test
+		set_heater_state(False);
 		set_fan_state(False)
 	elif temperature >= high_temp:
-		heater_state(False);
+		set_heater_state(False);
 		set_fan_state(True)
 	else: #it's cold..
-		heater_state(True);
+		set_heater_state(True);
 		set_fan_state(False)
 
 
@@ -146,7 +149,7 @@ def main():
 	
 	while True:
 		temperature_control_exec();
-		sleep (100); #kan kjøres oftere nå halvparten.
+		time.sleep (10); #kan kjøres oftere nå 
 
 if __name__ == '__main__':
 	main()
