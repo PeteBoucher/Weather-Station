@@ -3,6 +3,8 @@ import glob
 import time
 import MySQLdb
 import RPi.GPIO as GPIO
+import datetime
+import re
 
 #temp from BS18B20 sensor
 
@@ -14,98 +16,138 @@ os.system('modprobe w1-therm')
 #"one-wire" device pin is GPIO4 (physical pin number 7)
 
 #setup GPIO's for: 
-#Fan unit 12 (ph) 
-#Heater 18 (ph) 
-#Linear actuator 22 (ph)
 
-GPIO.setup(12, GPIO.OUT)
-GPIO.setup(18, GPIO.OUT)
-GPIO.setup(22, GPIO.OUT)
+fan_pin = 12 #Fan unit 12 (ph) 
+heater_pin = 18 #Heater 18 (ph) 
+door_pin = 22 #Linear actuator/door 22 (ph)
+
+GPIO.setup(fan_pin, GPIO.OUT)
+GPIO.setup(heater_pin, GPIO.OUT)
+GPIO.setup(door_pin, GPIO.OUT)
 
 #w1 is a virtual folder
 device_base_folder = '/sys/bus/w1/devices/'
-device_folder_1 = glob.glob(device_base_folder + '28-00000384c1bb')[0]
-device_file_1 = device_folder_1 + '/w1_slave'
+device_folder = glob.glob(device_base_folder + '28-00000384c1bb')[0]
+device_file = device_folder + '/w1_slave'
     
 #get raw temp from sensor        
-def read_temp_raw_1():
-	try:
-        e = open(device_file_1, 'r')
-        raw_1 = e.readlines()
-        e.close()
-    except ValueError:
-        	print("no sensor found")
-    return raw_1
+def read_temp_raw():
+        s = open(device_file, 'r')
+        raw = s.readlines()
+        s.close()
+    return raw
 		#returns an array of sensor data (BS18B20)
 		#with the temp from sensor in index(1).
 		
-def read_temp_1():
-
-        raw_1 = read_temp_raw_1()
+def read_temp():
         
         #raw array format: ['73 00 4b 46 7f ff 0d 10 7c : crc=7c YES\n', '73 00 4b 46 7f ff 0d 10 7c t=14800\n']
         #actual value= 14800 => 14.800 C
-        
-        #searching for pattern 't=' in tabel position 2 (index 1)
-        # normal setup: "t=14800" this wil reflect the temperatur 14.8 C
-        
-        position = raw_1[1].find('t=')
-        if position != -1: #not found
-                temp_string1 = raw_1[1][position+2:] #format => 14800
-                temp_c_out = float(temp_string1) / 1000.0 #format => 14800
-  		else:
-  				temp_c_out = -1
-  				error1()
-  					
-        return temp_c_out
+        #searching for pattern 't=' in array
+        #what is re ?
+        temp_string_unscaled = re.search("t=(\d+)", read_temp_raw()).group(1);
+		return float(temp_string_unscaled) / 1000;
+		
 
-#errors
-def error1():
-	raise RuntimeError('no sensor data!')
-                
 #init setup, set values high/1 = off
-GPIO.output(18,1) # heater unit (max 16A)
-GPIO.output(12,1) # cooling fan (max 1A)
-GPIO.output(22,1) # linear actuator for door (max 2A, H-bridge controlled)
+GPIO.output(fan_pin,1) # cooling fan (max 1A)
+GPIO.output(heater_pin,1) # heater unit (max 16A) 
+GPIO.output(door_pin,1) # linear actuator for door (max 2A, H-bridge controlled)
 
 #db connection setup
 db = MySQLdb.connect("host","user","pass","db")
 r = db.cursor()
 
-#if the environment around an RPI is 25 degrees, 
+#if the environment around a RPi is 25 degrees, 
 #the RPi in box/case reaches about 60 degrees Celsius. 
-#several components of the RPI is certified for 0-70 degrees, 
-#such as BCM2835 the 700MHz SoC and the LAN Chip
-#Safe temperature for Raspberry are 0-70 degrees Celsius.
-#loop to check temp and take action as necessary, RPi safe temp = 0-70 C
+#Several components of the RPi is certified for 0-70 degrees, 
+#such as the BCM2835 (700MHz SoC) and the LAN Chip.
+#Safe temperature for Raspberry are considered between 0-70 
+#degrees Celsius.
 
-while True:
-        if read_temp_1() >1 and read_temp_1() <25:
-                		#normal temp, no action
-                        time.sleep(300) #wait 5 min for new check
-                        else:
-        						if read_temp_1() >25:
-        							#High temp take action; fan on 5min, open door
-        							GPIO.output(22,0)
-                					GPIO.output(12,0)
-                					#write action to database
-                					r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Fan ON',read_temp_1()))
-                					db.commit()
-                					time.sleep(300)
-                					# 5min fan time past, fan off
-                					GPIO.output(12,1)
-                					GPIO.output(22,1)
+#init setup
+heater_state = False;
+fan_state = False;
+high_temp = 25
+low_temp = 2
 
-        						if read_temp_1() < 1:
-                					# low temp take action; heater on 5min
-                					GPIO.output(18,0)
-                					#write action to database
-                					r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Heater ON',read_temp_1()))
-                					db.commit()
-                					time.sleep(300)
-                					#5min heat time past, heater off
-                					GPIO.output(18,1)
-                					#50/50 duty cycle 5 min heater off (safty for cabels)
-                					time.sleep(300)
+#run/cool times
+heater_run_time = datetime.timedelta(minutes = 5)
+heater_cool_time = datetime.timedelta(minutes = 5)
+fan_run_time = datetime.timedelta(minutes = 3)
+fan_cool_time = datetime.timedelta(minutes = 1)
 
-    #New check (every 5 min)
+#Change fan state
+def set_fan_state(new_state):
+	if (new_state != fan_state):
+		fan_state = new_state
+	if(fan_state and datetime.datetime.now() > fan_last_run_timestamp + fan_run_time + fan_cool_time):
+			fan_last_run_timestamp = datetime.datetime.now()
+			#High temp take action; fan on, open door
+			#Check voltage / capacity (waiting for component)
+        	turn_fan_on()
+    	elif fan_state is False and current_time > fan_last_run_timestamp+fan_run_time:
+    		#Turn off fan, close door
+    		turn_fan_off()
+
+#Change heater state		
+def set_heater_state(new_state):
+	if new_state != heater_state:
+		heater_state = new_state
+	if heater_state and datetime.datetime.now() > heater_last_run_timestamp + heater_run_time + heater_cool_time:
+		heater_last_run_timestamp = datetime.datetime.now()
+		#Low temp take action; heater on
+		#Check voltage / capacity (waiting for component)
+		turn_heater_on()    		
+    elif heater_state is False and current_time > heater_last_run_timestamp+heater_run_time:
+		# heating is finished turn off
+		turn_heater_off();
+
+#action methods	
+def turn_heater_on():
+	GPIO.output(fan_pin,0)
+    r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Heater On',read_temp()))
+    db.commit()
+
+def turn_heater_off():
+	GPIO.output(fan_pin,1)
+    r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Heater Off',read_temp()))
+    db.commit()
+  
+def turn_fan_on():
+	GPIO.output(door_pin,0) 
+    GPIO.output(fan_pit,0) 
+	r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Fan On',read_temp()))
+
+def turn_fan_off():
+	GPIO.output(fan_pin,1) 
+    GPIO.output(door_pin,1) 
+    r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Fan Off',read_temp()))
+    db.commit() 	
+				
+				
+def temperature_control_exec():
+
+	temperature = read_temp();
+	
+	if temperature > low_temp and temperature < high_temp:
+		print('temp ok!')
+		heater_state(False);
+		set_fan_state(False)
+	elif temperature >= high_temp:
+		heater_state(False);
+		set_fan_state(True)
+	else: #it's cold..
+		heater_state(True);
+		set_fan_state(False)
+
+
+def main():
+	
+	while True:
+		temperature_control_exec();
+		sleep (100); #kan kjøres oftere nå halvparten.
+
+if __name__ == '__main__':
+	main()
+
