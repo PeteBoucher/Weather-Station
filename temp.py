@@ -23,7 +23,7 @@ def read_temp_raw2():
         e.close()
         return lines2
 
-def read_temp():
+def read_temp2():
 #-62 is "busy" signal from temp sensor
         result = None
         res = '10000' #init value
@@ -53,7 +53,7 @@ def read_temp_raw1():
         e.close()
         return lines1
 
-def read_temp2():
+def read_temp1():
 #-62 is "busy" signal from temp sensor
         result = None
         res = '10000' #init value
@@ -80,11 +80,11 @@ def read_temp2():
 db = MySQLdb.connect("host","user","pass","db")
 r = db.cursor()
 
-t1 = read_temp()
 t2 = read_temp2()
-dif = t2-t1
+t1 = read_temp1()
+dif = t1-t2
 #write to mySql db
-r.execute('''INSERT INTO Table (col,col,col) VALUES (%s,%s,%s)''',(t1,t2,dif))
+r.execute('''INSERT INTO Table (col,col,col) VALUES (%s,%s,%s)''',(t2,t1,dif))
 db.commit()
 print("Temp1 + Temp2 + diff is writen to database @ host")
         
