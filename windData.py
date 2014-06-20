@@ -10,6 +10,7 @@ from time import sleep
 import time
 import RPi.GPIO as GPIO, time, os
 import MySQLdb
+import connect
 
 DEBUG = 0
 counter = 0
@@ -23,12 +24,12 @@ speedPin = 17 #GPIO pin
 state = False
 
 #setup GPIO's
-#GPIO.setmode(GPIO.BCM)
+GPIO.setmode(GPIO.BCM)
 GPIO.setup(speedPin, GPIO.IN)
 #direction wil be switched between in/out (RC circuit)
 
 #db connection setup
-db = MySQLdb.connect("host","user","pass","db")
+db = connect.getConnect()
 r = db.cursor()
 
 #Direction by RC timing
@@ -56,9 +57,9 @@ def getDirection ():
         while (GPIO.input(directionPin) == GPIO.LOW):
                 reading += 1
         #rough numbers to deal with temp. changes        
-        if (reading > 200 and reading < 230):
+        if (reading > 189 and reading < 230):
                 return ("North")
-        elif (reading > 110 and reading < 130):
+        elif (reading > 110 and reading < 190):
                 return ("NorthWest")
         elif (reading > 45 and reading < 60):
                 return ("West")
@@ -99,7 +100,7 @@ def getSpeed():
 	return (speed)
 
 def writeToDb(speed, direction):
-        r.execute('''INSERT INTO table (speed,direction) VALUES (%s,%s)''',(speed,direction))
+        r.execute('''INSERT INTO wind (speed,direction) VALUES (%s,%s)''',(speed,direction))
         db.commit()	
 
 def main():
