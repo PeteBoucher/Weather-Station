@@ -10,7 +10,6 @@ import connect
 #By Lars-Martin Hejll
 #http://softwarefun.org
 
-
 #temp from BS18B20 sensor
 
 #initialize device
@@ -26,6 +25,8 @@ fan_pin = 12 #Fan unit 12 (ph)
 heater_pin = 18 #Heater 18 (ph) 
 door_pin = 22 #Linear actuator/door 22 (ph)
 
+GPIO.setmode(GPIO.BCM)
+
 GPIO.setup(fan_pin, GPIO.OUT)
 GPIO.setup(heater_pin, GPIO.OUT)
 GPIO.setup(door_pin, GPIO.OUT)
@@ -40,7 +41,7 @@ def read_temp_raw():
         s = open(device_file, 'r')
         raw = s.readlines()
         s.close()
-    return raw
+    	return raw
 		#returns an array of sensor data (BS18B20)
 		#with the temp from sensor in index(1).
 		
@@ -50,7 +51,7 @@ def read_temp():
         #actual value= 14800 => 14.800 C
         #searching for pattern 't=' in array
         temp_string_unscaled = re.search('t=(\d+)',str(read_temp_raw())).group(1);
-		return float(temp_string_unscaled) / 1000;
+	return float(temp_string_unscaled) / 1000;
 		
 
 #init setup, set values high/1 = off
@@ -84,24 +85,22 @@ fan_cool_time = datetime.timedelta(minutes = 1)
 #Change fan state
 def set_fan_state(new_state):
 	if new_state != fan_state:
-		if new_state and datetime.datetime.now() > last_fan_starttime + fan_run_time + fan_cool_time:
-			last_fan_starttime = datetime.datetime.now()
+		if new_state:
 			#High temp take action; fan on, open door
 			#Check voltage / capacity (waiting for component)
-        	turn_fan_on()
-    	elif new_state is False and current_time > last_fan_starttime+fan_run_time:
-    		#Turn off fan, close door
-    		turn_fan_off()
+        		turn_fan_on()
+    		elif new_state is False:
+    			#Turn off fan, close door
+    			turn_fan_off();
 
 #Change heater state		
 def set_heater_state(new_state):
 	if new_state != heater_state:
-		if new_state and datetime.datetime.now() > last_heater_starttime + heater_run_time + heater_cool_time:
-			last_heater_starttime = datetime.datetime.now()
+		if new_state:
 			#Low temp take action; heater on
 			#Check voltage / capacity (waiting for component)
 			turn_heater_on()    		
-    	elif new_state is False and current_time > last_heater_starttime+heater_run_time:
+    		elif new_state is False:
 			# heating is finished turn off
 			turn_heater_off();
 
@@ -109,28 +108,28 @@ def set_heater_state(new_state):
 def turn_heater_on():
 	GPIO.output(fan_pin,0)
 	heater_state = True
-    r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Heater On',read_temp()))
-    db.commit()
+    	r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Heater On',read_temp()))
+    	db.commit()
 
 def turn_heater_off():
 	GPIO.output(fan_pin,1)
 	heater_state = False
-    r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Heater Off',read_temp()))
-    db.commit()
+    	r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Heater Off',read_temp()))
+    	db.commit()
   
 def turn_fan_on():
 	GPIO.output(door_pin,0) 
-    GPIO.output(fan_pit,0) 
-    fan_state = True
+    	GPIO.output(fan_pit,0) 
+    	fan_state = True
 	r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Fan On',read_temp()))
 	db.commit
 
 def turn_fan_off():
 	GPIO.output(fan_pin,1) 
-    GPIO.output(door_pin,1) 
-    fan_state = False
-    r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Fan Off',read_temp()))
-    db.commit()
+    	GPIO.output(door_pin,1) 
+    	fan_state = False
+    	r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Fan Off',read_temp()))
+    	db.commit()
     	
 				
 				
@@ -139,7 +138,7 @@ def temperature_control_exec():
 	temperature = read_temp();
 	
 	if temperature > low_temp and temperature < high_temp:
-		print('temp ok!') #kun for test
+		print('temp ok!') #test purpose
 		set_heater_state(False);
 		set_fan_state(False)
 	elif temperature >= high_temp:
@@ -151,13 +150,11 @@ def temperature_control_exec():
 		set_heater_state(True);
 		set_fan_state(False)
 
-
 def main():
 	
 	while True:
 		temperature_control_exec();
-		time.sleep (10); #kan kjøres oftere nå 
+		time.sleep (60); #1 min 
 
 if __name__ == '__main__':
 	main()
-
