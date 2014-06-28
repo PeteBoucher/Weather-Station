@@ -3,6 +3,7 @@ import glob
 import time
 import MySQLdb
 import re
+import connect
 
 #By Lars-Martin Hejll
 #http://softwarefun.org
@@ -12,9 +13,9 @@ os.system('modprobe w1-therm')
 
 base_dir = '/sys/bus/w1/devices/'
 #replace ***** with your sensor id
-device_folder1 = glob.glob(base_dir + '28-00000*******')[0]
+device_folder1 = glob.glob(base_dir + '28-00000384c1bb')[0]
 device_file1 = device_folder1 + '/w1_slave'
-device_folder2 = glob.glob(base_dir + '28-00000*******')[0]
+device_folder2 = glob.glob(base_dir + '28-00000384c25d')[0]
 device_file2 = device_folder2 + '/w1_slave'
 
 def read_temp_raw2():
@@ -76,15 +77,15 @@ def read_temp1():
         temp = float(res) / 1000;
         return temp
 
-#db connection    
-db = MySQLdb.connect("host","user","pass","db")
+#db connection setup
+db = connect.getConnect()
 r = db.cursor()
 
 t2 = read_temp2()
 t1 = read_temp1()
 dif = t1-t2
 #write to mySql db
-r.execute('''INSERT INTO Table (col,col,col) VALUES (%s,%s,%s)''',(t2,t1,dif))
+r.execute('''INSERT INTO Table (temp1,temp2,diff) VALUES (%s,%s,%s)''',(t2,t1,dif))
 db.commit()
 print("Temp1 + Temp2 + diff is writen to database @ host")
         
