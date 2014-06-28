@@ -6,6 +6,7 @@ from yocto_power import *
 import time
 import MySQLdb
 import RPi.GPIO as GPIO
+import connect
 
 def die(msg):
     sys.exit(msg+' (die check USB cable)')
@@ -27,8 +28,7 @@ else:
     sensor= YPower.FindPower(target + '.power')
 
 #DB connection
-
-db = MySQLdb.connect("host","user","pass","db")
+db = connect.getConnect()
 r = db.cursor()
 
 while True:
