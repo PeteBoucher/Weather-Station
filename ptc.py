@@ -5,6 +5,7 @@ import MySQLdb
 import RPi.GPIO as GPIO
 import datetime
 import re
+import connect
 
 #By Lars-Martin Hejll
 #http://softwarefun.org
@@ -58,7 +59,7 @@ GPIO.output(heater_pin,1) # heater unit (max 16A)
 GPIO.output(door_pin,1) # linear actuator for door (max 2A, H-bridge controlled)
 
 #db connection setup
-db = MySQLdb.connect("host","user","pass","db")
+db = connect.getConnect()
 r = db.cursor()
 
 #if the environment around a RPi is 25 degrees, 
@@ -142,9 +143,11 @@ def temperature_control_exec():
 		set_heater_state(False);
 		set_fan_state(False)
 	elif temperature >= high_temp:
+		print('temp high!')
 		set_heater_state(False);
 		set_fan_state(True)
 	else: #it's cold..
+		print('temp low')
 		set_heater_state(True);
 		set_fan_state(False)
 

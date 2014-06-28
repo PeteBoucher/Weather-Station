@@ -85,7 +85,7 @@ t2 = read_temp2()
 t1 = read_temp1()
 dif = t1-t2
 #write to mySql db
-r.execute('''INSERT INTO Table (temp1,temp2,diff) VALUES (%s,%s,%s)''',(t2,t1,dif))
+r.execute('''INSERT INTO Data (temp1,temp2,diff) VALUES (%s,%s,%s)''',(t2,t1,dif))
 db.commit()
 print("Temp1 + Temp2 + diff is writen to database @ host")
         
