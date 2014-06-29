@@ -13,19 +13,19 @@ import MySQLdb
 import connect
 
 DEBUG = 0
-counter = 0
+counter = 0.0
 finishtime = 0
 
 rfactor = 1.492 #one RPS factor
-samples = 5
-speed = 0
+samples = 300.0
+speed = 0.0
 directionPin = 18  #GPIO pin 
-speedPin = 17 #GPIO pin
+speedPin = 23 #GPIO pin
 state = False
 
 #setup GPIO's
 GPIO.setmode(GPIO.BCM)
-GPIO.setup(speedPin, GPIO.IN)
+GPIO.setup(speedPin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 #direction wil be switched between in/out (RC circuit)
 
 #db connection setup
@@ -80,24 +80,25 @@ def getDirection ():
 def getSpeed():
 #    Loop some seconds (samples) and record pulses
 
-	counter = 0 #numbers of interrupt
+	counter = 0.0 #numbers of interrupt
 	# finishtime is right now (clock time) + 100 real seconds, not 
 	# CPU cycles
 	endTime = (int(time.time()) + samples)
-	state = True
+	state = False
 	while (int(time.time()) < endTime):
-		if ( GPIO.input(speedPin) == False ):
-			state = False #closed
+		if ( GPIO.input(speedPin) == True ):
+			state = True #closed
 		# wait for switch for open
-		if ((state == False) and (GPIO.input(speedPin) == True)):
+		if ((state == True) and (GPIO.input(speedPin) == False)):
 			# State is now open!
-			state = True
+			state = False
 			# count it!
 			counter = counter + 1
 #	counter is the total number of pulses during the sample time
 #	speed in MPH
+	
 	speed = ((counter / samples)  * rfactor)
-	return (speed)
+	return (speed*0.44704)
 
 def writeToDb(speed, direction):
         r.execute('''INSERT INTO wind (speed,direction) VALUES (%s,%s)''',(speed,direction))
