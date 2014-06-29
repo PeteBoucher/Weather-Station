@@ -33,12 +33,18 @@ r = db.cursor()
 
 while True:
     if not(sensor.isOnline()):die('device not connected')
+    
+    p = 0.0
+    for x in xrange(1,200):
+	p += sensor.get_currentValue()
+	time.sleep(2)
 
-    r.execute('''INSERT INTO power (watt_charge,watt_usage) VALUES (%s,%s)''',("%2.1f" % sensor.get_currentValue(),3.5))
+    result = p / 200
+    r.execute('''INSERT INTO power (watt_charge,watt_usage) VALUES (%s,%s)''',("%2.1f" % result,3.5))
     db.commit()
 
-    time.sleep(55)
+    time.sleep(5)
 
-    print("Power :  "+ "%2.1f" % sensor.get_currentValue() + "W (Ctrl-C to stop)")
-    YAPI.Sleep(1000)
+    print("Power :  "+ "%2.1f" % result + "W (Ctrl-C to stop)")
+    
     
