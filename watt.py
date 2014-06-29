@@ -3,6 +3,7 @@ import os
 import sys
 from yocto_api import *
 from yocto_power import *
+from yocto_voltage import *
 import time
 import MySQLdb
 import RPi.GPIO as GPIO
@@ -26,6 +27,7 @@ if target=='any':
         die('No module connected')
 else:
     sensor= YPower.FindPower(target + '.power')
+    sensor2 = YVoltage.FindVoltage(target + '.voltage')
 
 #DB connection
 db = connect.getConnect()
@@ -34,13 +36,17 @@ r = db.cursor()
 while True:
     if not(sensor.isOnline()):die('device not connected')
     
-    p = 0.0
+    power = 0.0
+    voltage = 0.0
+    
     for x in xrange(1,200):
-	p += sensor.get_currentValue()
-	time.sleep(2)
+	power += sensor.get_currentValue()
+	voltage += sensor2.get_currentValue()
+	time.sleep(200)
 
-    result = p / 200
-    r.execute('''INSERT INTO power (watt_charge,watt_usage) VALUES (%s,%s)''',("%2.1f" % result,3.5))
+    resultPower = power / 200
+    resultVoltage = voltage / 200
+    r.execute('''INSERT INTO power (watt_charge,watt_usage,voltage) VALUES (%s,%s,%s)''',("%2.1f" % resultPower,3.5, resultVoltage))
     db.commit()
 
     time.sleep(5)
