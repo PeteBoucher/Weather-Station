@@ -73,7 +73,7 @@ r = db.cursor()
 #init setup
 heater_state = False;
 fan_state = False;
-high_temp = 25
+high_temp = 35
 low_temp = 2
 
 #run/cool times
@@ -106,27 +106,25 @@ def set_heater_state(new_state):
 
 #action methods	
 def turn_heater_on():
-	GPIO.output(fan_pin,0)
+	GPIO.output(heater_pin,0)
 	heater_state = True
     	r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Heater On',read_temp()))
     	db.commit()
 
 def turn_heater_off():
-	GPIO.output(fan_pin,1)
+	GPIO.output(heater_pin,1)
 	heater_state = False
     	r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Heater Off',read_temp()))
     	db.commit()
   
 def turn_fan_on():
-	GPIO.output(door_pin,0) 
-    	GPIO.output(fan_pit,0) 
+    	GPIO.output(fan_pin,0) 
     	fan_state = True
 	r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Fan On',read_temp()))
 	db.commit
 
 def turn_fan_off():
 	GPIO.output(fan_pin,1) 
-    	GPIO.output(door_pin,1) 
     	fan_state = False
     	r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Fan Off',read_temp()))
     	db.commit()
@@ -136,7 +134,7 @@ def turn_fan_off():
 def temperature_control_exec():
 
 	temperature = read_temp();
-	
+	print(temperature);
 	if temperature > low_temp and temperature < high_temp:
 		print('temp ok!') #test purpose
 		set_heater_state(False);
@@ -154,7 +152,7 @@ def main():
 	
 	while True:
 		temperature_control_exec();
-		time.sleep (60); #1 min 
+		time.sleep (120); #1 min 
 
 if __name__ == '__main__':
 	main()

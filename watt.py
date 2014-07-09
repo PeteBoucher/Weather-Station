@@ -23,6 +23,9 @@ if YAPI.RegisterHub("usb", errmsg)!= YAPI.SUCCESS:
 if target=='any':
     # retreive any Power sensor
     sensor = YPower.FirstPower()
+    l = sensor.get_module()    
+    target1 = l.get_serialNumber()
+
     sensor2 = YVoltage.FirstVoltage()
     m = sensor2.get_module()
     target2 = m.get_serialNumber()
@@ -32,9 +35,9 @@ if target=='any':
 	
     if sensor2 is None :
 	print('No voltage module connected')
-else:
-    sensor= YPower.FindPower(target + '.power')
-    sensor2 = YVoltage.FindVoltage(target2 + '.voltage')
+
+    sensorPower= YPower.FindPower(target1 + '.power')
+    sensorVoltage = YVoltage.FindVoltage(target2 + '.voltage1')
 
 #DB connection
 db = connect.getConnect()
@@ -45,14 +48,14 @@ while True:
     if not(sensor2.isOnline()):print('voltage device not online/connected')
     power = 0.0
     voltage = 0.0
-    
-    for x in xrange(1,300):
-	power += sensor.get_currentValue()
-	voltage += sensor2.get_currentValue()
+    rangeCount = 300.0
+    for x in xrange(1,301):
+	power += sensorPower.get_currentValue()
+	voltage += sensorVoltage.get_currentValue()
 	time.sleep(0.2)
 
-    resultPower = power / 300.0
-    resultVoltage = voltage / 300.0
+    resultPower = power / rangeCount
+    resultVoltage = voltage / rangeCount
     r.execute('''INSERT INTO power (watt_charge,watt_usage,voltage) VALUES (%s,%s,%s)''',("%2.1f" % resultPower,3.5, resultVoltage))
     db.commit()
 
