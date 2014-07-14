@@ -23,17 +23,17 @@ os.system('modprobe w1-therm')
 
 fan_pin = 15 #Fan unit 15 (ph) 
 heater_pin = 11 #Heater 18 (ph) 
-door_pin = 22 #Linear actuator/door 22 (ph)
+#door_pin = 22 #Linear actuator/door 22 (ph)
 
 GPIO.setmode(GPIO.BCM)
 
 GPIO.setup(fan_pin, GPIO.OUT)
 GPIO.setup(heater_pin, GPIO.OUT)
-GPIO.setup(door_pin, GPIO.OUT)
+#GPIO.setup(door_pin, GPIO.OUT)
 
 #w1 is a virtual folder
 device_base_folder = '/sys/bus/w1/devices/'
-device_folder = glob.glob(device_base_folder + '28-00000384c1bb')[0]
+device_folder = glob.glob(device_base_folder + '28-00000384c25d')[0]
 device_file = device_folder + '/w1_slave'
     
 #get raw temp from sensor        
@@ -57,7 +57,7 @@ def read_temp():
 #init setup, set values high/1 = off
 GPIO.output(fan_pin,1) # cooling fan (max 1A)
 GPIO.output(heater_pin,1) # heater unit (max 16A) 
-GPIO.output(door_pin,1) # linear actuator for door (max 2A, H-bridge controlled)
+#GPIO.output(door_pin,1) # linear actuator for door (max 2A, H-bridge controlled)
 
 #db connection setup
 db = connect.getConnect()
@@ -73,14 +73,8 @@ r = db.cursor()
 #init setup
 heater_state = False;
 fan_state = False;
-high_temp = 35
+high_temp = 45
 low_temp = 2
-
-#run/cool times
-heater_run_time = datetime.timedelta(minutes = 5)
-heater_cool_time = datetime.timedelta(minutes = 5)
-fan_run_time = datetime.timedelta(minutes = 3)
-fan_cool_time = datetime.timedelta(minutes = 1)
 
 #Change fan state
 def set_fan_state(new_state):
@@ -88,18 +82,18 @@ def set_fan_state(new_state):
 		if new_state:
 			#High temp take action; fan on, open door
 			#Check voltage / capacity (waiting for component)
-        		turn_fan_on()
+        		turn_fan_on();
     		elif new_state is False:
     			#Turn off fan, close door
     			turn_fan_off();
 
 #Change heater state		
 def set_heater_state(new_state):
-	if new_state != heater_state:
+	if new_state != fan_state:
 		if new_state:
 			#Low temp take action; heater on
 			#Check voltage / capacity (waiting for component)
-			turn_heater_on()    		
+			turn_heater_on();    		
     		elif new_state is False:
 			# heating is finished turn off
 			turn_heater_off();
@@ -110,30 +104,28 @@ def turn_heater_on():
 	GPIO.output(heater_pin,0)
 	heater_state = True
     	r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Heater On',read_temp()))
-    	db.commit()
+    	db.commit();
 
 def turn_heater_off():
 	print("heater off!")
 	GPIO.output(heater_pin,1)
 	heater_state = False
     	r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Heater Off',read_temp()))
-    	db.commit()
+    	db.commit();
   
 def turn_fan_on():
     	print("Fan on!")
 	GPIO.output(fan_pin,0) 
     	fan_state = True
 	r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Fan On',read_temp()))
-	db.commit
+	db.commit();
 
 def turn_fan_off():
 	print("fan off!")
 	GPIO.output(fan_pin,1) 
     	fan_state = False
     	r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Fan Off',read_temp()))
-    	db.commit()
-    	
-				
+    	db.commit();		
 				
 def temperature_control_exec():
 
@@ -156,7 +148,9 @@ def main():
 	
 	while True:
 		temperature_control_exec();
-		time.sleep (120); #1 min 
-
+		time.sleep (120); #2 min 
+		set_fan_state(False);
+		set_heater_state(False);
+		time.sleep(60);
 if __name__ == '__main__':
 	main()
