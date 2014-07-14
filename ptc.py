@@ -21,8 +21,8 @@ os.system('modprobe w1-therm')
 
 #setup GPIO's for: 
 
-fan_pin = 12 #Fan unit 12 (ph) 
-heater_pin = 18 #Heater 18 (ph) 
+fan_pin = 15 #Fan unit 15 (ph) 
+heater_pin = 11 #Heater 18 (ph) 
 door_pin = 22 #Linear actuator/door 22 (ph)
 
 GPIO.setmode(GPIO.BCM)
@@ -106,24 +106,28 @@ def set_heater_state(new_state):
 
 #action methods	
 def turn_heater_on():
+	print("heater on!")
 	GPIO.output(heater_pin,0)
 	heater_state = True
     	r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Heater On',read_temp()))
     	db.commit()
 
 def turn_heater_off():
+	print("heater off!")
 	GPIO.output(heater_pin,1)
 	heater_state = False
     	r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Heater Off',read_temp()))
     	db.commit()
   
 def turn_fan_on():
-    	GPIO.output(fan_pin,0) 
+    	print("Fan on!")
+	GPIO.output(fan_pin,0) 
     	fan_state = True
 	r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Fan On',read_temp()))
 	db.commit
 
 def turn_fan_off():
+	print("fan off!")
 	GPIO.output(fan_pin,1) 
     	fan_state = False
     	r.execute('''INSERT INTO ptc (activity,temp) VALUES (%s,%s)''',('Fan Off',read_temp()))
